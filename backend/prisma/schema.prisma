@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id          String    @id
+  phone       String?
+  status      String    @default("disconnected") // connecting, open, closed
+  authState   Json?     // Baileys auth credentials
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  messages    Message[]
+  contacts    Contact[]
+  chats       Chat[]
+
+  @@map("sessions")
+}
+
+model Message {
+  id          Int       @id @default(autoincrement())
+  sessionId   String
+  messageId   String    @unique
+  fromJid     String
+  toJid       String
+  chatId      String
+  type        String    // text, image, video, audio, document, etc.
+  content     Json      // message content (text, caption, url, etc.)
+  timestamp   BigInt
+  status      String    @default("sent") // sent, delivered, read, failed
+  isFromMe    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  
+  session     Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  chat        Chat?     @relation(fields: [chatId, sessionId], references: [chatId, sessionId])
+
+  @@index([chatId, timestamp(sort: Desc)])
+  @@index([sessionId, timestamp(sort: Desc)])
+  @@map("messages")
+}
+
+model Contact {
+  id              Int       @id @default(autoincrement())
+  sessionId       String
+  jid             String
+  name            String?
+  pushName        String?
+  profilePicUrl   String?
+  updatedAt       DateTime  @updatedAt
+  
+  session         Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, jid])
+  @@map("contacts")
+}
+
+model Chat {
+  id              Int       @id @default(autoincrement())
+  sessionId       String
+  chatId          String
+  name            String?
+  isGroup         Boolean   @default(false)
+  unreadCount     Int       @default(0)
+  lastMessageTime BigInt?
+  archived        Boolean   @default(false)
+  pinned          Boolean   @default(false)
+  muted           Boolean   @default(false)
+  updatedAt       DateTime  @updatedAt
+  
+  session         Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  messages        Message[]
+
+  @@unique([sessionId, chatId])
+  @@index([sessionId, lastMessageTime(sort: Desc)])
+  @@map("chats")
+}

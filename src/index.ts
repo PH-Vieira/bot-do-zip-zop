@@ -1,4 +1,9 @@
-import makeWASocket, { DisconnectReason, useMultiFileAuthState, Browsers } from '@whiskeysockets/baileys'
+import makeWASocket, {
+  DisconnectReason,
+  useMultiFileAuthState,
+  Browsers,
+  jidNormalizedUser
+} from '@whiskeysockets/baileys'
 import P from 'pino'
 import qrcode from 'qrcode-terminal'
 
@@ -39,27 +44,37 @@ async function start() {
         // ignore our own messages
         if (m.key.fromMe) continue
 
-        const jid = m.key.remoteJid
-        // only private chats
-        if (!jid || !jid.endsWith('@s.whatsapp.net')) continue
+        const remoteJid = m.key.remoteJid
+        if (!remoteJid) continue
+
+        // Private chats can come as PN (@s.whatsapp.net) or LID (@lid) in v7
+        const isPrivate = remoteJid.endsWith('@s.whatsapp.net') || remoteJid.endsWith('@lid')
+        if (!isPrivate) continue
+
+        const replyJid = jidNormalizedUser(remoteJid)
 
         const msg = m.message
         if (!msg) continue
 
-        // extract text from common fields
-        let text: string | undefined
-        const anyMsg = msg as any
-        if (anyMsg.conversation) {
-          text = anyMsg.conversation as string
-        } else if (msg.extendedTextMessage?.text) {
-          text = msg.extendedTextMessage.text
+        // extract text (handles normal, extended, and ephemeral wrappers)
+        const getText = (message: any): string | undefined => {
+          return (
+            message?.conversation ||
+            message?.extendedTextMessage?.text ||
+            message?.ephemeralMessage?.message?.conversation ||
+            message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
+            message?.viewOnceMessage?.message?.conversation ||
+            message?.viewOnceMessage?.message?.extendedTextMessage?.text
+          )?.toString()
         }
+
+        const text = getText(msg)
 
         if (!text) continue
 
         const normalized = text.trim().toLowerCase()
         if (normalized === 'ping') {
-          await sock.sendMessage(jid, { text: 'pong' })
+          await sock.sendMessage(replyJid, { text: 'pong' })
         }
       } catch (err) {
         console.error('message handler error', err)

@@ -2,11 +2,11 @@ import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
   Browsers,
-  jidNormalizedUser
+  jidNormalizedUser,
+  type WASocket
 } from '@whiskeysockets/baileys'
 import P from 'pino'
 import qrcode from 'qrcode-terminal'
-import type { WASocket } from '@whiskeysockets/baileys'
 
 const startTime = Date.now()
 
@@ -36,9 +36,10 @@ const PIADAS = [
   '😄 Por que o celular foi à escola?\nPara melhorar sua rede social!'
 ]
 
-/**
- * Handler de comandos do bot
- */
+// -------------------------
+// Comandos
+// -------------------------
+
 async function handleCommand(command: string, sock: WASocket, jid: string) {
   const cmd = command.split(' ')[0].toLowerCase()
 
@@ -47,42 +48,32 @@ async function handleCommand(command: string, sock: WASocket, jid: string) {
     case '/help':
       await handleAjuda(sock, jid)
       break
-    
     case '/ping':
       await handlePing(sock, jid)
       break
-    
     case '/status':
       await handleStatus(sock, jid)
       break
-    
     case '/horario':
     case '/hora':
       await handleHorario(sock, jid)
       break
-    
     case '/sobre':
     case '/info':
       await handleSobre(sock, jid)
       break
-    
     case '/menu':
     case '/start':
-        const text = getText(msg)
-
-        if (!text) continue
-
-        const normalized = text.trim().toLowerCase()
-        
-        // Detectar comandos (começam com /)
-        if (normalized.startsWith('/')) {
-          await handleCommand(normalized, sock, replyJid)
-        }
-      } catch (err) {
-        console.error('message handler error', err)
+      await handleMenu(sock, jid)
+      break
+    case '/frase':
+    case '/quote':
+      await handleFrase(sock, jid)
+      break
+    case '/piada':
+    case '/joke':
       await handlePiada(sock, jid)
       break
-    
     default:
       await handleUnknown(sock, jid, cmd)
       break
@@ -102,7 +93,7 @@ async function handleAjuda(sock: WASocket, jid: string) {
 /piada - Piada aleatória
 
 _Digite qualquer comando para começar!_`
-  
+
   await sock.sendMessage(jid, { text: message })
 }
 
@@ -207,6 +198,10 @@ Digite /ajuda para ver todos os comandos disponíveis.`
   await sock.sendMessage(jid, { text: message })
 }
 
+// -------------------------
+// Bot principal
+// -------------------------
+
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys')
 
@@ -273,8 +268,10 @@ async function start() {
         if (!text) continue
 
         const normalized = text.trim().toLowerCase()
-        if (normalized === 'ping') {
-          await sock.sendMessage(replyJid, { text: 'pong' })
+
+        // Comandos iniciam com /
+        if (normalized.startsWith('/')) {
+          await handleCommand(normalized, sock, replyJid)
         }
       } catch (err) {
         console.error('message handler error', err)

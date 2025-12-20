@@ -28,7 +28,7 @@ export class SessionStore {
         create: {
           id: this.sessionId,
           status: 'disconnected',
-          authState: { creds, keys }
+          authState: ({ creds, keys } as any)
         },
         update: {}
       })
@@ -38,7 +38,7 @@ export class SessionStore {
       await prisma.session.update({
         where: { id: this.sessionId },
         data: {
-          authState: { creds, keys },
+          authState: ({ creds, keys } as any),
           updatedAt: new Date()
         }
       })

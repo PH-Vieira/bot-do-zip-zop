@@ -25,10 +25,9 @@ export class ERPIntegrationService {
       if (phone) {
         const jid = `${phone}@s.whatsapp.net`
         // Validar se existe no WhatsApp
-        const [exists] = await sock.onWhatsApp(jid)
-        if (exists) {
-          logger.info({ phone, exists: exists.exists }, 'Contact validated')
-        }
+        const result = await sock.onWhatsApp(jid)
+        const exists = Array.isArray(result) ? (result[0]?.exists === true) : false
+        logger.info({ phone, exists }, 'Contact validated')
       }
     }
   }

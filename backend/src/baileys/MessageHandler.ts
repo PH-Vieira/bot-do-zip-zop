@@ -48,7 +48,7 @@ export class MessageHandler extends EventEmitter {
       const fromJid = msg.key.fromMe ? this.sock.user?.id || '' : remoteJid
       const toJid = msg.key.fromMe ? remoteJid : this.sock.user?.id || ''
       const chatId = remoteJid
-      const timestamp = BigInt(msg.messageTimestamp || Date.now())
+      const timestamp = this.toBigIntTimestamp(msg.messageTimestamp)
 
       // Extract message type and content
       const { type, content } = this.extractMessageContent(msg.message)
@@ -239,5 +239,17 @@ export class MessageHandler extends EventEmitter {
     }
 
     return { type: 'unknown', content: message }
+  }
+
+  private toBigIntTimestamp(ts: any): bigint {
+    try {
+      if (ts && typeof ts === 'object' && typeof ts.toNumber === 'function') {
+        return BigInt(ts.toNumber())
+      }
+      const n = Number(ts ?? Date.now())
+      return BigInt(n)
+    } catch {
+      return BigInt(Date.now())
+    }
   }
 }

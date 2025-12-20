@@ -34,8 +34,7 @@ async function main() {
   fastify.register(sessionRoutes, { prefix: '/api/session' })
   fastify.register(messageRoutes, { prefix: '/api/messages' })
   fastify.register(chatRoutes, { prefix: '/api/chats' })
-  fastify.register(erpRoutes, { prefix: '/api/erp' })es' })
-  fastify.register(chatRoutes, { prefix: '/api/chats' })
+  fastify.register(erpRoutes, { prefix: '/api/erp' })
 
   // Start server
   await fastify.listen({ port: config.port, host: '0.0.0.0' })

@@ -11,7 +11,12 @@ import { erpRoutes } from './routes/erp.routes.js'
 
 async function main() {
   const fastify = Fastify({
-    logger: logger as any
+    logger: {
+      level: config.nodeEnv === 'development' ? 'debug' : 'info',
+      transport: config.nodeEnv === 'development'
+        ? { target: 'pino-pretty', options: { colorize: true } }
+        : undefined
+    }
   })
 
   // Register plugins

@@ -7,6 +7,7 @@ import { setupWebSocket } from './websocket/SocketServer.js'
 import { sessionRoutes } from './routes/session.routes.js'
 import { messageRoutes } from './routes/message.routes.js'
 import { chatRoutes } from './routes/chat.routes.js'
+import { conversationRoutes } from './routes/conversation.routes.js'
 import { erpRoutes } from './routes/erp.routes.js'
 import { baileysManager } from './baileys/BaileysManager.js'
 
@@ -98,6 +99,7 @@ async function main() {
   fastify.register(sessionRoutes, { prefix: '/api/session' })
   fastify.register(messageRoutes, { prefix: '/api/messages' })
   fastify.register(chatRoutes, { prefix: '/api/chats' })
+  fastify.register(conversationRoutes, { prefix: '/api/conversations' })
   fastify.register(erpRoutes, { prefix: '/api/erp' })
 
   // Start server

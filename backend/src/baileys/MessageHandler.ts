@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import { prisma } from '../config/database.js'
 import { normalizeJid, isPrivateJid, isGroupJid } from '../utils/jid.js'
 import { logger } from '../config/logger.js'
+import { syncConversationFromChat } from '../controllers/conversation.controller.js'
 
 export class MessageHandler extends EventEmitter {
   private sessionId: string
@@ -117,6 +118,9 @@ export class MessageHandler extends EventEmitter {
           status: 'sent'
         }
       })
+
+      // Sincronizar conversation automaticamente
+      await syncConversationFromChat(this.sessionId, chatId)
     } catch (err) {
       logger.error({ err, sessionId: this.sessionId }, 'Failed to handle message')
     }

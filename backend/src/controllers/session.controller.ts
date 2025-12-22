@@ -24,8 +24,8 @@ export async function getSessionStatus(
   req: FastifyRequest<{ Params: { sessionId: string } }>,
   reply: FastifyReply
 ) {
+  const { sessionId } = req.params
   try {
-    const { sessionId } = req.params
     logger.info(`Getting status for session: ${sessionId}`)
     
     const session = await prisma.session.findUnique({ where: { id: sessionId } })
@@ -47,7 +47,7 @@ export async function getSessionStatus(
       updatedAt: session.updatedAt
     })
   } catch (err: any) {
-    logger.error({ error: err.message, stack: err.stack, sessionId: req.params.sessionId }, 'Failed to get session status')
+    logger.error({ error: err.message, stack: err.stack, sessionId }, 'Failed to get session status')
     reply.status(500).send({ error: err.message })
   }
 }
@@ -56,14 +56,14 @@ export async function disconnectSession(
   req: FastifyRequest<{ Params: { sessionId: string } }>,
   reply: FastifyReply
 ) {
+  const { sessionId } = req.params
   try {
-    const { sessionId } = req.params
     logger.info(`Disconnecting session: ${sessionId}`)
     await baileysManager.disconnect(sessionId)
     logger.info(`Session disconnected: ${sessionId}`)
     reply.send({ success: true, message: 'Session disconnected' })
   } catch (err: any) {
-    logger.error({ error: err.message, stack: err.stack, sessionId: req.params.sessionId }, 'Failed to disconnect session')
+    logger.error({ error: err.message, stack: err.stack, sessionId }, 'Failed to disconnect session')
     reply.status(500).send({ error: err.message })
   }
 }
@@ -72,15 +72,15 @@ export async function deleteSession(
   req: FastifyRequest<{ Params: { sessionId: string } }>,
   reply: FastifyReply
 ) {
+  const { sessionId } = req.params
   try {
-    const { sessionId } = req.params
     logger.info(`Deleting session: ${sessionId}`)
     await baileysManager.disconnect(sessionId)
     await prisma.session.delete({ where: { id: sessionId } }).catch(() => {})
     logger.info(`Session deleted: ${sessionId}`)
     reply.send({ success: true, message: 'Session deleted' })
   } catch (err: any) {
-    logger.error({ error: err.message, stack: err.stack, sessionId: req.params.sessionId }, 'Failed to delete session')
+    logger.error({ error: err.message, stack: err.stack, sessionId }, 'Failed to delete session')
     reply.status(500).send({ error: err.message })
   }
 }

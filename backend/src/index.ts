@@ -22,7 +22,6 @@ async function main() {
         ? { target: 'pino-pretty', options: { colorize: true } }
         : undefined
     },
-    disableRequestLogging: false,
     requestIdHeader: 'x-request-id',
     requestIdLogLabel: 'reqId'
   })
@@ -61,17 +60,23 @@ async function main() {
 
   // Global error handler
   fastify.setErrorHandler((error, request, reply) => {
-    const err = error as any
+    // Type guard for Error objects
+    const isError = error instanceof Error
+    const statusCode = (error as any).statusCode || 500
+    const message = isError ? error.message : 'Internal Server Error'
+    const stack = isError ? error.stack : undefined
+    
     logger.error({
-      error: err.message,
-      stack: err.stack,
+      error: message,
+      stack,
+      statusCode,
       method: request.method,
       url: request.url
     }, 'Request error')
     
-    reply.status(err.statusCode || 500).send({
-      error: err.message || 'Internal Server Error',
-      statusCode: err.statusCode || 500
+    reply.status(statusCode).send({
+      error: message,
+      statusCode
     })
   })
 
@@ -99,7 +104,8 @@ async function main() {
   // Setup WebSocket
   setupWebSocket(fastify.server)
 
-  const serverUrl = `http://0.0.0.0:${config.port}`
+  const protocol = config.nodeEnv === 'production' ? 'https' : 'http'
+  const serverUrl = `${protocol}://0.0.0.0:${config.port}`
   logger.info('=== Server Started Successfully ===')
   logger.info(`Server listening on ${serverUrl}`)
   logger.info(`Health check: ${serverUrl}/health`)

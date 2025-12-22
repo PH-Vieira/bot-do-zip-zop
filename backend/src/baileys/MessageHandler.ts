@@ -69,27 +69,7 @@ export class MessageHandler extends EventEmitter {
         }
       }
 
-      await prisma.message.upsert({
-        where: { messageId },
-        create: {
-          sessionId: this.sessionId,
-          messageId,
-          fromJid,
-          toJid,
-          chatId,
-          type,
-          content,
-          timestamp,
-          isFromMe: msg.key.fromMe || false,
-          status: 'sent'
-        },
-        update: {
-          content,
-          status: 'sent'
-        }
-      })
-
-      // Update chat with profile picture
+      // Create/update chat FIRST before saving message (to avoid foreign key constraint)
       const chatData: any = {
         lastMessageTime: timestamp,
         unreadCount: msg.key.fromMe ? 0 : { increment: 1 }
@@ -115,6 +95,27 @@ export class MessageHandler extends EventEmitter {
           profilePicUrl: profilePicUrl || null
         },
         update: chatData
+      })
+
+      // NOW save the message after chat exists
+      await prisma.message.upsert({
+        where: { messageId },
+        create: {
+          sessionId: this.sessionId,
+          messageId,
+          fromJid,
+          toJid,
+          chatId,
+          type,
+          content,
+          timestamp,
+          isFromMe: msg.key.fromMe || false,
+          status: 'sent'
+        },
+        update: {
+          content,
+          status: 'sent'
+        }
       })
     } catch (err) {
       logger.error({ err, sessionId: this.sessionId }, 'Failed to handle message')

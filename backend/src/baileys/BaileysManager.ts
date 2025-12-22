@@ -2,7 +2,9 @@ import makeWASocket, {
   DisconnectReason,
   WASocket,
   BaileysEventMap,
-  Contact as BaileysContact
+  Contact as BaileysContact,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore
 } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import P from 'pino'
@@ -22,6 +24,7 @@ export interface SessionInfo {
 export class BaileysManager extends EventEmitter {
   private sessions = new Map<string, WASocket>()
   private messageHandlers = new Map<string, MessageHandler>()
+  private qrCodes = new Map<string, string>()
 
   async createSession(sessionId: string): Promise<SessionInfo> {
     if (this.sessions.has(sessionId)) {
@@ -31,10 +34,18 @@ export class BaileysManager extends EventEmitter {
     const store = new SessionStore(sessionId)
     const { state, saveCreds } = await store.loadAuthState()
 
+    // Fetch latest version of WA Web
+    const { version, isLatest } = await fetchLatestBaileysVersion()
+    logger.info({ version: version.join('.'), isLatest }, 'Using WA version')
+
     const sock = makeWASocket({
-      auth: state,
+      version,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger as any)
+      },
       printQRInTerminal: false,
-      logger: P({ level: 'error' }), // reduce noise
+      logger: P({ level: 'silent' }), // reduce noise
       markOnlineOnConnect: false,
       syncFullHistory: false,
       browser: ['WhatsApp API', 'Chrome', '1.0.0']
@@ -49,43 +60,55 @@ export class BaileysManager extends EventEmitter {
     messageHandler.on('message.received', (data) => this.emit('message.received', data))
     messageHandler.on('message.updated', (data) => this.emit('message.updated', data))
 
-    sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update
+    // Use event processor pattern from official example
+    sock.ev.process(async (events) => {
+      // Connection updates
+      if (events['connection.update']) {
+        const update = events['connection.update']
+        const { connection, lastDisconnect, qr } = update
 
-      if (qr) {
-        const qrDataURL = await generateQRDataURL(qr)
-        this.emit('qr', { sessionId, qr: qrDataURL })
-        await store.updateStatus('connecting')
-      }
+        if (qr) {
+          const qrDataURL = await generateQRDataURL(qr)
+          this.qrCodes.set(sessionId, qrDataURL)
+          this.emit('qr', { sessionId, qr: qrDataURL })
+          await store.updateStatus('connecting')
+          logger.info({ sessionId }, 'QR code generated')
+        }
 
-      if (connection === 'open') {
-        const phone = sock.user?.id ? sock.user.id.split(':')[0] : undefined
-        await store.updateStatus('open', phone)
-        this.emit('connected', { sessionId, phone })
-        logger.info({ sessionId, phone }, 'Session connected')
-      }
+        if (connection === 'open') {
+          const phone = sock.user?.id ? sock.user.id.split(':')[0] : undefined
+          this.qrCodes.delete(sessionId)
+          await store.updateStatus('open', phone)
+          this.emit('connected', { sessionId, phone })
+          logger.info({ sessionId, phone }, 'Session connected')
+        }
 
-      if (connection === 'close') {
-        const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut
+        if (connection === 'close') {
+          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode
+          const shouldReconnect = statusCode !== DisconnectReason.loggedOut
 
-        await store.updateStatus('closed')
-        this.emit('disconnected', { sessionId, shouldReconnect })
-        
-        this.sessions.delete(sessionId)
-        this.messageHandlers.delete(sessionId)
+          this.qrCodes.delete(sessionId)
+          await store.updateStatus('closed')
+          this.emit('disconnected', { sessionId, shouldReconnect })
+          
+          this.sessions.delete(sessionId)
+          this.messageHandlers.delete(sessionId)
 
-        if (shouldReconnect) {
-          logger.info({ sessionId, statusCode }, 'Reconnecting session...')
-          setTimeout(() => this.createSession(sessionId), 5000)
-        } else {
-          logger.info({ sessionId }, 'Session logged out')
-          await store.deleteSession()
+          if (shouldReconnect) {
+            logger.info({ sessionId, statusCode }, 'Reconnecting session...')
+            setTimeout(() => this.createSession(sessionId), 5000)
+          } else {
+            logger.info({ sessionId }, 'Session logged out')
+            await store.deleteSession()
+          }
         }
       }
-    })
 
-    sock.ev.on('creds.update', saveCreds)
+      // Credentials update
+      if (events['creds.update']) {
+        await saveCreds()
+      }
+    })
 
     return {
       sessionId,
@@ -118,6 +141,10 @@ export class BaileysManager extends EventEmitter {
 
   isSessionActive(sessionId: string): boolean {
     return this.sessions.has(sessionId)
+  }
+
+  getQRCode(sessionId: string): string | undefined {
+    return this.qrCodes.get(sessionId)
   }
 }
 

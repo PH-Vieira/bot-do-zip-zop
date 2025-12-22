@@ -53,6 +53,28 @@ export async function getSessionStatus(
   }
 }
 
+export async function getSessionQR(
+  req: FastifyRequest<{ Params: { sessionId: string } }>,
+  reply: FastifyReply
+) {
+  const { sessionId } = req.params
+  try {
+    logger.info(`Getting QR for session: ${sessionId}`)
+    
+    const qr = baileysManager.getQRCode(sessionId)
+    
+    if (!qr) {
+      logger.warn(`QR not available for session: ${sessionId}`)
+      return reply.status(404).send({ error: 'QR code not available' })
+    }
+
+    reply.send({ sessionId, qr })
+  } catch (err: any) {
+    logger.error({ error: err.message, stack: err.stack, sessionId }, 'Failed to get QR code')
+    reply.status(500).send({ error: err.message })
+  }
+}
+
 export async function disconnectSession(
   req: FastifyRequest<{ Params: { sessionId: string } }>,
   reply: FastifyReply

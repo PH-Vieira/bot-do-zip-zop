@@ -59,6 +59,11 @@ export class MessageHandler extends EventEmitter {
         try {
           const url = await this.sock.profilePictureUrl(fromJid, 'image').catch(() => null)
           profilePicUrl = url || null
+          if (profilePicUrl) {
+            logger.info({ jid: fromJid, profilePicUrl: profilePicUrl.substring(0, 100) }, 'Profile picture found')
+          } else {
+            logger.debug({ jid: fromJid }, 'Profile picture not available')
+          }
         } catch (err) {
           logger.debug({ err, jid: fromJid }, 'Failed to get profile picture')
         }
@@ -91,6 +96,7 @@ export class MessageHandler extends EventEmitter {
       }
       if (profilePicUrl !== null) {
         chatData.profilePicUrl = profilePicUrl
+        logger.info({ chatId, profilePicUrl: profilePicUrl.substring(0, 100) }, 'Updating chat with profile picture')
       }
 
       await prisma.chat.upsert({
@@ -156,6 +162,7 @@ export class MessageHandler extends EventEmitter {
         }
         if (profilePicUrl !== null) {
           updateData.profilePicUrl = profilePicUrl
+          logger.info({ jid, profilePicUrl: profilePicUrl.substring(0, 100) }, 'Updating contact with profile picture')
         }
 
         await prisma.contact.upsert({
@@ -205,6 +212,7 @@ export class MessageHandler extends EventEmitter {
         }
         if (profilePicUrl !== null) {
           updateData.profilePicUrl = profilePicUrl
+          logger.info({ chatId, profilePicUrl: profilePicUrl.substring(0, 100) }, 'Updating chat with profile picture from upsert')
         }
 
         await prisma.chat.upsert({

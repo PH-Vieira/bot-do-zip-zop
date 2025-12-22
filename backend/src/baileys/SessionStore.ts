@@ -18,7 +18,10 @@ export class SessionStore {
     let keys: any = {}
 
     if (session?.authState) {
-      const authData = session.authState as any
+      // Parse with BufferJSON.reviver to properly deserialize Buffers
+      const authData = typeof session.authState === 'string' 
+        ? JSON.parse(session.authState, BufferJSON.reviver)
+        : JSON.parse(JSON.stringify(session.authState), BufferJSON.reviver)
       creds = authData.creds || initAuthCreds()
       keys = authData.keys || {}
     } else {
@@ -28,7 +31,7 @@ export class SessionStore {
         create: {
           id: this.sessionId,
           status: 'disconnected',
-          authState: ({ creds, keys } as any)
+          authState: JSON.parse(JSON.stringify({ creds, keys }, BufferJSON.replacer)) as any
         },
         update: {}
       })
@@ -38,7 +41,7 @@ export class SessionStore {
       await prisma.session.update({
         where: { id: this.sessionId },
         data: {
-          authState: ({ creds, keys } as any),
+          authState: JSON.parse(JSON.stringify({ creds, keys }, BufferJSON.replacer)) as any,
           updatedAt: new Date()
         }
       })

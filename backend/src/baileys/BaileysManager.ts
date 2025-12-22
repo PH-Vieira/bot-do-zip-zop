@@ -146,6 +146,30 @@ export class BaileysManager extends EventEmitter {
   getQRCode(sessionId: string): string | undefined {
     return this.qrCodes.get(sessionId)
   }
+
+  async restoreExistingSessions(): Promise<void> {
+    try {
+      const { prisma } = await import('../config/database.js')
+      const sessions = await prisma.session.findMany({
+        where: {
+          status: 'open'
+        }
+      })
+
+      logger.info({ count: sessions.length }, 'Restoring existing sessions')
+
+      for (const session of sessions) {
+        try {
+          await this.createSession(session.id)
+          logger.info({ sessionId: session.id }, 'Session restored')
+        } catch (err: any) {
+          logger.error({ err, sessionId: session.id }, 'Failed to restore session')
+        }
+      }
+    } catch (err: any) {
+      logger.error({ err }, 'Failed to restore sessions')
+    }
+  }
 }
 
 export const baileysManager = new BaileysManager()

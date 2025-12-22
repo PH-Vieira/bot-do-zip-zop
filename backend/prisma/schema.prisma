@@ -70,6 +70,7 @@ model Chat {
   archived        Boolean   @default(false)
   pinned          Boolean   @default(false)
   muted           Boolean   @default(false)
+  profilePicUrl   String?
   updatedAt       DateTime  @updatedAt
   
   session         Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)

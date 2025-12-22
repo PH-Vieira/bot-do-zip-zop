@@ -122,8 +122,24 @@ export async function listSessions(req: FastifyRequest, reply: FastifyReply) {
         updatedAt: true
       }
     })
+    
+    // Enrich sessions with active status
+    const enrichedSessions = sessions.map(session => {
+      const isActive = baileysManager.isSessionActive(session.id)
+      const actualStatus = isActive ? 'connected' : session.status
+      
+      return {
+        id: session.id,
+        status: actualStatus,
+        phone: session.phone,
+        isActive,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt
+      }
+    })
+    
     logger.info(`Found ${sessions.length} sessions`)
-    reply.send({ sessions })
+    reply.send({ sessions: enrichedSessions })
   } catch (err: any) {
     logger.error({ error: err.message, stack: err.stack }, 'Failed to list sessions')
     reply.status(500).send({ error: err.message })

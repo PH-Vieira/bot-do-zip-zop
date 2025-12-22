@@ -8,6 +8,7 @@ import { sessionRoutes } from './routes/session.routes.js'
 import { messageRoutes } from './routes/message.routes.js'
 import { chatRoutes } from './routes/chat.routes.js'
 import { erpRoutes } from './routes/erp.routes.js'
+import { baileysManager } from './baileys/BaileysManager.js'
 
 async function main() {
   logger.info('=== Starting WhatsApp API Backend ===')
@@ -104,6 +105,9 @@ async function main() {
 
   // Setup WebSocket
   setupWebSocket(fastify.server)
+
+  // Restore existing sessions
+  await baileysManager.restoreExistingSessions()
 
   const protocol = config.nodeEnv === 'production' ? 'https' : 'http'
   const serverUrl = `${protocol}://0.0.0.0:${config.port}`

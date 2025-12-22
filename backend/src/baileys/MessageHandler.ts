@@ -53,6 +53,17 @@ export class MessageHandler extends EventEmitter {
       // Extract message type and content
       const { type, content } = this.extractMessageContent(msg.message)
 
+      // Get profile picture URL
+      let profilePicUrl: string | null = null
+      if (!msg.key.fromMe) {
+        try {
+          const url = await this.sock.profilePictureUrl(fromJid, 'image').catch(() => null)
+          profilePicUrl = url || null
+        } catch (err) {
+          logger.debug({ err, jid: fromJid }, 'Failed to get profile picture')
+        }
+      }
+
       await prisma.message.upsert({
         where: { messageId },
         create: {
@@ -73,7 +84,15 @@ export class MessageHandler extends EventEmitter {
         }
       })
 
-      // Update chat
+      // Update chat with profile picture
+      const chatData: any = {
+        lastMessageTime: timestamp,
+        unreadCount: msg.key.fromMe ? 0 : { increment: 1 }
+      }
+      if (profilePicUrl !== null) {
+        chatData.profilePicUrl = profilePicUrl
+      }
+
       await prisma.chat.upsert({
         where: {
           sessionId_chatId: {
@@ -86,12 +105,10 @@ export class MessageHandler extends EventEmitter {
           chatId,
           isGroup: isGroupJid(chatId),
           lastMessageTime: timestamp,
-          unreadCount: msg.key.fromMe ? 0 : 1
+          unreadCount: msg.key.fromMe ? 0 : 1,
+          profilePicUrl: profilePicUrl || null
         },
-        update: {
-          lastMessageTime: timestamp,
-          unreadCount: msg.key.fromMe ? 0 : { increment: 1 }
-        }
+        update: chatData
       })
     } catch (err) {
       logger.error({ err, sessionId: this.sessionId }, 'Failed to handle message')
@@ -122,23 +139,40 @@ export class MessageHandler extends EventEmitter {
       for (const contact of contacts) {
         if (!contact.id) continue
 
+        const jid = normalizeJid(contact.id)
+        
+        // Get profile picture if imgUrl changed
+        let profilePicUrl: string | null = null
+        if (typeof contact.imgUrl !== 'undefined') {
+          const url = contact.imgUrl === null
+            ? null
+            : await this.sock.profilePictureUrl(jid, 'image').catch(() => null)
+          profilePicUrl = url || null
+        }
+
+        const updateData: any = {
+          name: contact.name || contact.notify,
+          pushName: contact.notify
+        }
+        if (profilePicUrl !== null) {
+          updateData.profilePicUrl = profilePicUrl
+        }
+
         await prisma.contact.upsert({
           where: {
             sessionId_jid: {
               sessionId: this.sessionId,
-              jid: normalizeJid(contact.id)
+              jid
             }
           },
           create: {
             sessionId: this.sessionId,
-            jid: normalizeJid(contact.id),
+            jid,
             name: contact.name || contact.notify,
-            pushName: contact.notify
+            pushName: contact.notify,
+            profilePicUrl: profilePicUrl || null
           },
-          update: {
-            name: contact.name || contact.notify,
-            pushName: contact.notify
-          }
+          update: updateData
         })
       }
     } catch (err) {
@@ -151,30 +185,47 @@ export class MessageHandler extends EventEmitter {
       for (const chat of chats) {
         if (!chat.id) continue
 
+        const chatId = normalizeJid(chat.id)
+        
+        // Get profile picture for chat
+        let profilePicUrl: string | null = null
+        try {
+          const url = await this.sock.profilePictureUrl(chatId, 'image').catch(() => null)
+          profilePicUrl = url || null
+        } catch (err) {
+          logger.debug({ err, chatId }, 'Failed to get chat profile picture')
+        }
+
+        const updateData: any = {
+          name: chat.name,
+          unreadCount: chat.unreadCount || 0,
+          archived: chat.archived || false,
+          pinned: chat.pinned || false,
+          muted: chat.mute ? true : false
+        }
+        if (profilePicUrl !== null) {
+          updateData.profilePicUrl = profilePicUrl
+        }
+
         await prisma.chat.upsert({
           where: {
             sessionId_chatId: {
               sessionId: this.sessionId,
-              chatId: normalizeJid(chat.id)
+              chatId
             }
           },
           create: {
             sessionId: this.sessionId,
-            chatId: normalizeJid(chat.id),
+            chatId,
             name: chat.name,
-            isGroup: isGroupJid(chat.id),
+            isGroup: isGroupJid(chatId),
             unreadCount: chat.unreadCount || 0,
             archived: chat.archived || false,
             pinned: chat.pinned || false,
-            muted: chat.mute ? true : false
+            muted: chat.mute ? true : false,
+            profilePicUrl: profilePicUrl || null
           },
-          update: {
-            name: chat.name,
-            unreadCount: chat.unreadCount || 0,
-            archived: chat.archived || false,
-            pinned: chat.pinned || false,
-            muted: chat.mute ? true : false
-          }
+          update: updateData
         })
       }
     } catch (err) {

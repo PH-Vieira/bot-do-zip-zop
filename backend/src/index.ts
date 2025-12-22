@@ -60,9 +60,10 @@ async function main() {
 
   // Global error handler
   fastify.setErrorHandler((error, request, reply) => {
-    // Type guard for Error objects
+    // Type guard for Error objects with statusCode
     const isError = error instanceof Error
-    const statusCode = (error as any).statusCode || 500
+    const hasStatusCode = typeof (error as any).statusCode === 'number'
+    const statusCode = hasStatusCode ? (error as any).statusCode : 500
     const message = isError ? error.message : 'Internal Server Error'
     const stack = isError ? error.stack : undefined
     

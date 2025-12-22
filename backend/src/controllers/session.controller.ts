@@ -24,6 +24,7 @@ export async function getSessionStatus(
   req: FastifyRequest<{ Params: { sessionId: string } }>,
   reply: FastifyReply
 ) {
+  // Extract sessionId outside try-catch to use in error logging
   const { sessionId } = req.params
   try {
     logger.info(`Getting status for session: ${sessionId}`)
@@ -56,6 +57,7 @@ export async function disconnectSession(
   req: FastifyRequest<{ Params: { sessionId: string } }>,
   reply: FastifyReply
 ) {
+  // Extract sessionId outside try-catch to use in error logging
   const { sessionId } = req.params
   try {
     logger.info(`Disconnecting session: ${sessionId}`)
@@ -72,6 +74,7 @@ export async function deleteSession(
   req: FastifyRequest<{ Params: { sessionId: string } }>,
   reply: FastifyReply
 ) {
+  // Extract sessionId outside try-catch to use in error logging
   const { sessionId } = req.params
   try {
     logger.info(`Deleting session: ${sessionId}`)
